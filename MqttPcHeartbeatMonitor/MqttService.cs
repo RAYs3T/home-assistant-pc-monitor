@@ -1,14 +1,13 @@
-﻿using MQTTnet;
-using MQTTnet.Client;
-using MQTTnet.Client.Options;
-using Newtonsoft.Json;
-using System.IO;
+﻿using System.IO;
+using System.Text;
 using System.Threading;
-using MQTTnet.Server;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using System.Text;
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Client.Options;
 using MQTTnet.Exceptions;
+using Newtonsoft.Json;
 
 namespace MqttPcHeartbeatMonitor
 {
@@ -87,27 +86,30 @@ namespace MqttPcHeartbeatMonitor
             {
                 var config = JsonConvert.DeserializeObject<Config>(json);
 
-                if (!string.IsNullOrEmpty(config.BridgeUser.UserName) && !string.IsNullOrEmpty(config.BridgeUser.Password))
+                var builder = new MqttClientOptionsBuilder()
+                    .WithClientId(config.BridgeUser.ClientId)
+                    .WithTcpServer(config.BridgeUrl, config.BridgePort)
+                    .WithCleanSession();
+
+                if (config.BridgeTls)
                 {
-                    return new MqttClientOptionsBuilder()
-                        .WithClientId(config.BridgeUser.ClientId)
-                        .WithTcpServer(config.BridgeUrl, config.BridgePort)
-                        .WithCleanSession()
-                        .WithCredentials(config.BridgeUser.UserName, config.BridgeUser.Password)
-                        .Build();
+                    builder = builder.WithTls();
                 }
-                else
+
+                if (!string.IsNullOrEmpty(config.BridgeUser.UserName) &&
+                    !string.IsNullOrEmpty(config.BridgeUser.Password))
                 {
-                    return new MqttClientOptionsBuilder()
-                        .WithClientId(config.BridgeUser.ClientId)
-                        .WithTcpServer(config.BridgeUrl, config.BridgePort)
-                        .WithCleanSession()
-                        .Build();
+                    builder = builder
+                        .WithCredentials(config.BridgeUser.UserName, config.BridgeUser.Password);
                 }
+
+                return builder
+                    .Build();
             }
             else
             {
-                throw new FileNotFoundException($"config.json not found. Assembly location {Helpers.AssemblyDirectory}");
+                throw new FileNotFoundException(
+                    $"config.json not found. Assembly location {Helpers.AssemblyDirectory}");
             }
         }
     }
@@ -116,6 +118,8 @@ namespace MqttPcHeartbeatMonitor
     {
         public int BridgePort { get; set; }
         public string BridgeUrl { get; set; }
+
+        public bool BridgeTls { get; set; }
         public User BridgeUser { get; set; }
     }
 

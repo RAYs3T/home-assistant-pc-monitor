@@ -1,9 +1,10 @@
 {
-  "BridgeUrl": "hassio.local",
-  "BridgePort": 1883,
+  "BridgeUrl": "hass.homenet",
+  "BridgePort": 8883,
+  "BridgeTls": true,
   "BridgeUser": {
-    "UserName": "mqtt-user",
-    "ClientId": "not-hassio",
-    "Password": "mqtt-pass"
+    "UserName": "ws-user",
+    "ClientId": "ws-user",
+    "Password": "SecretPassword"
   }
 }
