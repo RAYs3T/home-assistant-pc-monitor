@@ -6,18 +6,12 @@ namespace MqttPcHeartbeatMonitor
 {
     public class GetLastUserInput
     {
-        private struct LASTINPUTINFO
-        {
-            public uint cbSize;
-            public uint dwTime;
-        }
-        
         private static LASTINPUTINFO _lastInputInfo;
 
         static GetLastUserInput()
         {
             _lastInputInfo = new LASTINPUTINFO();
-            _lastInputInfo.cbSize = (uint)Marshal.SizeOf(_lastInputInfo);
+            _lastInputInfo.cbSize = (uint) Marshal.SizeOf(_lastInputInfo);
         }
 
         [DllImport("User32.dll")]
@@ -25,7 +19,7 @@ namespace MqttPcHeartbeatMonitor
 
         public static uint GetIdleTickCount()
         {
-            return ((uint)Environment.TickCount - GetLastInputTime());
+            return ((uint) Environment.TickCount - GetLastInputTime());
         }
 
         public static uint GetLastInputTime()
@@ -37,16 +31,18 @@ namespace MqttPcHeartbeatMonitor
 
             return _lastInputInfo.dwTime;
         }
+
         public static bool IsIdle()
         {
             var idleTime = GetIdleTickCount();
 
-            if (idleTime >= (60 * 5))
-            {
-                return true;
-            }
+            return idleTime >= (5 * 1000);
+        }
 
-            return false;
+        private struct LASTINPUTINFO
+        {
+            public uint cbSize;
+            public uint dwTime;
         }
     }
 }
