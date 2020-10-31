@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -11,16 +10,13 @@ namespace MqttPcHeartbeatMonitor
 {
     public class Worker : BackgroundService
     {
-        const int SW_HIDE = 0;
-        const int SW_SHOW = 5;
         private static IMqttService _mqttService;
 
         private static readonly string IdleTopic = $"{Environment.MachineName}/idleStatus";
         private static readonly string WsLockedTopic = $"{Environment.MachineName}/workstationLocked";
 
-        private static bool lastIdleState;
+        private static bool _lastIdleState;
 
-        private static SessionSwitchEventHandler sseh;
         private static IMqttClient _mqttClient;
         private readonly ILogger<Worker> _logger;
 
@@ -29,14 +25,10 @@ namespace MqttPcHeartbeatMonitor
             _logger = logger;
             _mqttService = mqttService;
 
-            sseh = SystemEvents_SessionSwitch;
-            SystemEvents.SessionSwitch += sseh;
+            SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
 
             InitTopicsWithDefaultValues();
         }
-
-        [DllImport("kernel32.dll")]
-        static extern IntPtr GetConsoleWindow();
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -68,11 +60,11 @@ namespace MqttPcHeartbeatMonitor
         private static async Task CheckAndPublishIdleState()
         {
             var currentIdleState = GetLastUserInput.IsIdle();
-            if (currentIdleState != lastIdleState)
+            if (currentIdleState != _lastIdleState)
             {
                 // Update idle topic only when it has changed
                 await _mqttService.Publish(_mqttClient, currentIdleState.ToString(), IdleTopic);
-                lastIdleState = currentIdleState;
+                _lastIdleState = currentIdleState;
             }
         }
 
