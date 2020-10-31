@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,12 +39,13 @@ namespace MqttPcHeartbeatMonitor
             {
                 await client.PublishAsync(messageBuilder);
             }
-            catch
+            catch (Exception ex)
             {
                 var stringBuilder = new StringBuilder();
-                stringBuilder.Append($"Topic: {messageBuilder.Topic}");
-                stringBuilder.Append($"Payload: {messageBuilder.Payload}");
-                stringBuilder.Append($"Retain Message: {messageBuilder.Retain}");
+                stringBuilder.Append($"Topic: {messageBuilder.Topic}\n");
+                stringBuilder.Append($"Payload: {messageBuilder.Payload}\n");
+                stringBuilder.Append($"Retain Message: {messageBuilder.Retain}\n");
+                stringBuilder.Append("\nError Message: " + ex.Message);
 
                 _logger.LogError(stringBuilder.ToString());
 
