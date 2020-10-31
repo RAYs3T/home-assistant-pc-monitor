@@ -1,7 +1,7 @@
 {
-  "BridgeUrl": "hass.homenet",
-  "BridgePort": 8883,
-  "BridgeTls": true,
+  "BridgeUrl": "hassio.local",
+  "BridgePort": 1883,
+  "BridgeTls": false,
   "BridgeUser": {
     "UserName": "ws-user",
     "ClientId": "ws-user",
