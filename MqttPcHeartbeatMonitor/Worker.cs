@@ -150,6 +150,7 @@ namespace MqttPcHeartbeatMonitor
             {
                 Name = _cpuId + "." + computerName + ".workstation_locked",
                 StateTopic = WorkstationLockedTopic,
+                JsonAttributesTopic = WorkstationLockedTopic,
                 UniqueId = _cpuId + "_" + computerName + "_locked",
                 Device = deviceConfig,
                 Icon = "hass:lock",
@@ -168,6 +169,7 @@ namespace MqttPcHeartbeatMonitor
             {
                 Name = _cpuId + "." + computerName + ".user_active",
                 StateTopic = UserActiveTopic,
+                JsonAttributesTopic = UserActiveTopic,
                 UniqueId = _cpuId + "_" + computerName + "_active",
                 Device = deviceConfig,
                 Icon = "hass:motion",

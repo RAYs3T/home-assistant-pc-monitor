@@ -7,6 +7,9 @@ namespace MqttPcHeartbeatMonitor
         [JsonProperty("name")] public string Name;
         [JsonProperty("state_topic")] public string StateTopic { get; set; }
 
+        [JsonProperty("json_attributes_topic")]
+        public string JsonAttributesTopic { get; set; }
+
         [JsonProperty("device")] public HomeAssistantDevice Device { get; set; }
 
         [JsonProperty("unique_id")] public string UniqueId { get; set; }
