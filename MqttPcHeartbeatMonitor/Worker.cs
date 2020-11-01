@@ -16,17 +16,17 @@ namespace MqttPcHeartbeatMonitor
 
         // https://www.home-assistant.io/docs/mqtt/discovery/
         // <discovery_prefix>/<component>/[<node_id>/]<object_id>/config
-        private static readonly string UserPresenceConfigTopic =
-            $"homeassistant/binary_sensor/{Environment.MachineName}-user-presence/config";
+        private static readonly string UserActiveConfigTopic =
+            $"homeassistant/sensor/{Environment.MachineName}/user_active/config";
 
-        private static readonly string UserPresenceTopic =
-            $"homeassistant/binary_sensor/{Environment.MachineName}-user-presence/state";
+        private static readonly string UserActiveTopic =
+            $"win2mqtt/{Environment.MachineName}/user_active/state";
 
-        private static readonly string WsLockConfigTopic =
-            $"homeassistant/binary_sensor/{Environment.MachineName}-workstation-lock/config";
+        private static readonly string WorkstationLockedConfigTopic =
+            $"homeassistant/sensor/{Environment.MachineName}/workstation_locked/config";
 
-        private static readonly string WsLockedTopic =
-            $"homeassistant/binary_sensor/{Environment.MachineName}-workstation-lock/state";
+        private static readonly string WorkstationLockedTopic =
+            $"win2mqtt/{Environment.MachineName}/workstation_locked/state";
 
         private static bool _lastIdleState;
 
@@ -43,7 +43,7 @@ namespace MqttPcHeartbeatMonitor
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await reconnectWhenDisconnected();
+            await ReconnectWhenDisconnected();
             ConfigureHomeAssistantAutoDiscovery(Environment.MachineName);
             InitTopicsWithDefaultValues();
             try
@@ -51,7 +51,7 @@ namespace MqttPcHeartbeatMonitor
                 _logger.LogInformation("Worker started at: {time}", DateTimeOffset.Now);
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    reconnectWhenDisconnected();
+                    await ReconnectWhenDisconnected();
                     await CheckAndPublishPresenceState();
                     await Task.Delay(1000, stoppingToken);
                 }
@@ -76,18 +76,12 @@ namespace MqttPcHeartbeatMonitor
             var currentIdleState = GetLastUserInput.IsIdle();
             if (currentIdleState != _lastIdleState)
             {
-                // Update idle topic only when it has changed
-                var presenceState = new HomeAssistantPresenceState()
-                {
-                    Presence = (!currentIdleState)
-                };
-                var presencePayload = JsonConvert.SerializeObject(presenceState);
-                await _mqttService.Publish(_mqttClient, presencePayload, UserPresenceTopic);
+                await _mqttService.Publish(_mqttClient, (!currentIdleState).ToString(), UserActiveTopic);
                 _lastIdleState = currentIdleState;
             }
         }
 
-        private async Task reconnectWhenDisconnected()
+        private static async Task ReconnectWhenDisconnected()
         {
             if (_mqttClient == null || !_mqttClient.IsConnected)
             {
@@ -116,14 +110,9 @@ namespace MqttPcHeartbeatMonitor
         /**
          * Publishes the workstation lock state given
          */
-        private static void PublishWsLockState(Boolean wsLocked)
+        private static void PublishWsLockState(bool workstationLocked)
         {
-            var lockState = new HomeAssistantLockState()
-            {
-                Lock = wsLocked
-            };
-            var lockStatePayload = JsonConvert.SerializeObject(lockState);
-            _mqttService.Publish(_mqttClient, lockStatePayload, WsLockedTopic);
+            _mqttService.Publish(_mqttClient, workstationLocked.ToString(), WorkstationLockedTopic);
         }
 
         /**
@@ -132,8 +121,8 @@ namespace MqttPcHeartbeatMonitor
          */
         private static void InitTopicsWithDefaultValues()
         {
-            //_mqttService.Publish(_mqttClient, "false", UserPresenceTopic);
-            //_mqttService.Publish(_mqttClient, "true", WsLockedTopic);
+            _mqttService.Publish(_mqttClient, "unknown", UserActiveTopic);
+            _mqttService.Publish(_mqttClient, "unknown", WorkstationLockedTopic);
         }
 
         private static void ConfigureHomeAssistantAutoDiscovery(string computerName)
@@ -146,10 +135,11 @@ namespace MqttPcHeartbeatMonitor
             };
             var haLockConfig = new HomeAssistantLockConfig
             {
-                DeviceClass = "lock", Name = computerName + "_unlocked",
-                StateTopic = WsLockedTopic,
-                UniqueId = computerName + "_unlocked",
-                Device = deviceConfig
+                Name = computerName + " Workstation Locked",
+                StateTopic = WorkstationLockedTopic,
+                UniqueId = computerName + "_locked",
+                Device = deviceConfig,
+                Icon = "hass:lock"
             };
             var lockConfigPayload = JsonConvert.SerializeObject(haLockConfig);
             if (lockConfigPayload == null)
@@ -157,23 +147,27 @@ namespace MqttPcHeartbeatMonitor
                 throw new Exception("Unable to build auto discovery config for _unlocked");
             }
 
-            _mqttService.Publish(_mqttClient, lockConfigPayload, WsLockConfigTopic);
+            _mqttService.Publish(_mqttClient, lockConfigPayload, WorkstationLockedConfigTopic);
 
 
-            var haUserPresenceConfig = new HomeAssistantLockConfig
+            var haUserActiveConfig = new HomeAssistantLockConfig
             {
-                DeviceClass = "presence", Name = computerName + "_presence",
-                StateTopic = UserPresenceTopic,
-                UniqueId = computerName + "_presence",
-                Device = deviceConfig
+                Name = computerName + " User active",
+                StateTopic = UserActiveTopic,
+                UniqueId = computerName + "_active",
+                Device = deviceConfig,
+                Icon = "hass:motion",
+                ValueTemplate = "{% if value == 'true' %}Active{% endif %}" +
+                                "{% if value == 'false' %}Inactive{% endif %}" +
+                                "{% if value == 'unknown' %}Unknown{% endif %}"
             };
-            var presenceConfigPayload = JsonConvert.SerializeObject(haUserPresenceConfig);
+            var presenceConfigPayload = JsonConvert.SerializeObject(haUserActiveConfig);
             if (presenceConfigPayload == null)
             {
                 throw new Exception("Unable to build auto discovery config for _presence");
             }
 
-            _mqttService.Publish(_mqttClient, presenceConfigPayload, UserPresenceConfigTopic);
+            _mqttService.Publish(_mqttClient, presenceConfigPayload, UserActiveConfigTopic);
         }
     }
 }
