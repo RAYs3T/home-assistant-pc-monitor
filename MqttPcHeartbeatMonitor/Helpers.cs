@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Management;
 using System.Reflection;
 
 namespace MqttPcHeartbeatMonitor
@@ -35,6 +36,23 @@ namespace MqttPcHeartbeatMonitor
                     return string.Empty;
                 }
             }
+        }
+
+        public static string GetCpuId()
+        {
+            ManagementObjectCollection managementInstance;
+            using (ManagementClass managClass = new ManagementClass("win32_processor"))
+            {
+                managementInstance = managClass.GetInstances();
+            }
+
+            foreach (var o in managementInstance)
+            {
+                var managementObject = (ManagementObject) o;
+                return managementObject.Properties["processorID"].Value.ToString();
+            }
+
+            return null;
         }
     }
 }

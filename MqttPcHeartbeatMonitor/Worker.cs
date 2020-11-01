@@ -13,25 +13,28 @@ namespace MqttPcHeartbeatMonitor
     public class Worker : BackgroundService
     {
         private static IMqttService _mqttService;
+        private static string _cpuId = Helpers.GetCpuId();
+        private static string _uniqueMachineName = _cpuId + "_" + Environment.MachineName;
 
         // https://www.home-assistant.io/docs/mqtt/discovery/
         // <discovery_prefix>/<component>/[<node_id>/]<object_id>/config
         private static readonly string UserActiveConfigTopic =
-            $"homeassistant/sensor/{Environment.MachineName}/user_active/config";
+            $"homeassistant/sensor/{_uniqueMachineName}/user_active/config";
 
         private static readonly string UserActiveTopic =
-            $"win2mqtt/{Environment.MachineName}/user_active/state";
+            $"win2mqtt/{_uniqueMachineName}/user_active/state";
 
         private static readonly string WorkstationLockedConfigTopic =
-            $"homeassistant/sensor/{Environment.MachineName}/workstation_locked/config";
+            $"homeassistant/sensor/{_uniqueMachineName}/workstation_locked/config";
 
         private static readonly string WorkstationLockedTopic =
-            $"win2mqtt/{Environment.MachineName}/workstation_locked/state";
+            $"win2mqtt/{_uniqueMachineName}/workstation_locked/state";
 
         private static bool _lastIdleState;
 
         private static IMqttClient _mqttClient;
         private readonly ILogger<Worker> _logger;
+
 
         public Worker(ILogger<Worker> logger, IMqttService mqttService)
         {
@@ -76,7 +79,12 @@ namespace MqttPcHeartbeatMonitor
             var currentIdleState = GetLastUserInput.IsIdle();
             if (currentIdleState != _lastIdleState)
             {
-                await _mqttService.Publish(_mqttClient, (!currentIdleState).ToString(), UserActiveTopic);
+                var haActiveState = new HomeAssistantUserActiveState()
+                {
+                    State = (!currentIdleState).ToString()
+                };
+
+                await _mqttService.Publish(_mqttClient, JsonConvert.SerializeObject(haActiveState), UserActiveTopic);
                 _lastIdleState = currentIdleState;
             }
         }
@@ -112,7 +120,12 @@ namespace MqttPcHeartbeatMonitor
          */
         private static void PublishWsLockState(bool workstationLocked)
         {
-            _mqttService.Publish(_mqttClient, workstationLocked.ToString(), WorkstationLockedTopic);
+            var haWorkstationLockState = new HomeAssistantWorkstationLockState()
+            {
+                Locked = workstationLocked.ToString()
+            };
+            _mqttService.Publish(_mqttClient, JsonConvert.SerializeObject(haWorkstationLockState),
+                WorkstationLockedTopic);
         }
 
         /**
@@ -121,25 +134,26 @@ namespace MqttPcHeartbeatMonitor
          */
         private static void InitTopicsWithDefaultValues()
         {
-            _mqttService.Publish(_mqttClient, "unknown", UserActiveTopic);
-            _mqttService.Publish(_mqttClient, "unknown", WorkstationLockedTopic);
+            //_mqttService.Publish(_mqttClient, "unknown", UserActiveTopic);
+            //_mqttService.Publish(_mqttClient, "unknown", WorkstationLockedTopic);
         }
 
         private static void ConfigureHomeAssistantAutoDiscovery(string computerName)
         {
             var deviceConfig = new HomeAssistantDevice
             {
-                Name = Environment.MachineName,
-                Identifiers = new List<string> {Environment.MachineName},
+                Name = _cpuId + "." + Environment.MachineName + ".device",
+                Identifiers = new List<string> {_cpuId + "_" + Environment.MachineName},
                 SwVersion = Environment.OSVersion.ToString()
             };
             var haLockConfig = new HomeAssistantLockConfig
             {
-                Name = computerName + " Workstation Locked",
+                Name = _cpuId + "." + computerName + ".workstation_locked",
                 StateTopic = WorkstationLockedTopic,
-                UniqueId = computerName + "_locked",
+                UniqueId = _cpuId + "_" + computerName + "_locked",
                 Device = deviceConfig,
-                Icon = "hass:lock"
+                Icon = "hass:lock",
+                ValueTemplate = "{{ value_json.locked }}"
             };
             var lockConfigPayload = JsonConvert.SerializeObject(haLockConfig);
             if (lockConfigPayload == null)
@@ -152,14 +166,12 @@ namespace MqttPcHeartbeatMonitor
 
             var haUserActiveConfig = new HomeAssistantLockConfig
             {
-                Name = computerName + " User active",
+                Name = _cpuId + "." + computerName + ".user_active",
                 StateTopic = UserActiveTopic,
-                UniqueId = computerName + "_active",
+                UniqueId = _cpuId + "_" + computerName + "_active",
                 Device = deviceConfig,
                 Icon = "hass:motion",
-                ValueTemplate = "{% if value == 'true' %}Active{% endif %}" +
-                                "{% if value == 'false' %}Inactive{% endif %}" +
-                                "{% if value == 'unknown' %}Unknown{% endif %}"
+                ValueTemplate = "{{ value_json.user_active }}"
             };
             var presenceConfigPayload = JsonConvert.SerializeObject(haUserActiveConfig);
             if (presenceConfigPayload == null)

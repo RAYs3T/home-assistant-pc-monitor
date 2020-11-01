@@ -36,7 +36,7 @@ namespace MqttPcHeartbeatMonitor
         {
             var idleTime = GetIdleTickCount();
 
-            return idleTime >= (5 * 1000);
+            return idleTime >= (30 * 1000);
         }
 
         private struct LASTINPUTINFO
