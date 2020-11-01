@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using MQTTnet.Client;
+using Newtonsoft.Json;
 
 namespace MqttPcHeartbeatMonitor
 {
@@ -12,8 +14,19 @@ namespace MqttPcHeartbeatMonitor
     {
         private static IMqttService _mqttService;
 
-        private static readonly string IdleTopic = $"{Environment.MachineName}/idleStatus";
-        private static readonly string WsLockedTopic = $"{Environment.MachineName}/workstationLocked";
+        // https://www.home-assistant.io/docs/mqtt/discovery/
+        // <discovery_prefix>/<component>/[<node_id>/]<object_id>/config
+        private static readonly string UserPresenceConfigTopic =
+            $"homeassistant/binary_sensor/{Environment.MachineName}-user-presence/config";
+
+        private static readonly string UserPresenceTopic =
+            $"homeassistant/binary_sensor/{Environment.MachineName}-user-presence/state";
+
+        private static readonly string WsLockConfigTopic =
+            $"homeassistant/binary_sensor/{Environment.MachineName}-workstation-lock/config";
+
+        private static readonly string WsLockedTopic =
+            $"homeassistant/binary_sensor/{Environment.MachineName}-workstation-lock/state";
 
         private static bool _lastIdleState;
 
@@ -26,19 +39,20 @@ namespace MqttPcHeartbeatMonitor
             _mqttService = mqttService;
 
             SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
-
-            InitTopicsWithDefaultValues();
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            await reconnectWhenDisconnected();
+            ConfigureHomeAssistantAutoDiscovery(Environment.MachineName);
+            InitTopicsWithDefaultValues();
             try
             {
                 _logger.LogInformation("Worker started at: {time}", DateTimeOffset.Now);
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    await reconnectWhenDisconnected();
-                    await CheckAndPublishIdleState();
+                    reconnectWhenDisconnected();
+                    await CheckAndPublishPresenceState();
                     await Task.Delay(1000, stoppingToken);
                 }
 
@@ -57,13 +71,18 @@ namespace MqttPcHeartbeatMonitor
             }
         }
 
-        private static async Task CheckAndPublishIdleState()
+        private static async Task CheckAndPublishPresenceState()
         {
             var currentIdleState = GetLastUserInput.IsIdle();
             if (currentIdleState != _lastIdleState)
             {
                 // Update idle topic only when it has changed
-                await _mqttService.Publish(_mqttClient, currentIdleState.ToString(), IdleTopic);
+                var presenceState = new HomeAssistantPresenceState()
+                {
+                    Presence = (!currentIdleState)
+                };
+                var presencePayload = JsonConvert.SerializeObject(presenceState);
+                await _mqttService.Publish(_mqttClient, presencePayload, UserPresenceTopic);
                 _lastIdleState = currentIdleState;
             }
         }
@@ -99,7 +118,12 @@ namespace MqttPcHeartbeatMonitor
          */
         private static void PublishWsLockState(Boolean wsLocked)
         {
-            _mqttService.Publish(_mqttClient, wsLocked.ToString(), WsLockedTopic);
+            var lockState = new HomeAssistantLockState()
+            {
+                Lock = wsLocked
+            };
+            var lockStatePayload = JsonConvert.SerializeObject(lockState);
+            _mqttService.Publish(_mqttClient, lockStatePayload, WsLockedTopic);
         }
 
         /**
@@ -108,8 +132,48 @@ namespace MqttPcHeartbeatMonitor
          */
         private static void InitTopicsWithDefaultValues()
         {
-            _mqttService.Publish(_mqttClient, "unknown", IdleTopic);
-            _mqttService.Publish(_mqttClient, "unknown", WsLockedTopic);
+            //_mqttService.Publish(_mqttClient, "false", UserPresenceTopic);
+            //_mqttService.Publish(_mqttClient, "true", WsLockedTopic);
+        }
+
+        private static void ConfigureHomeAssistantAutoDiscovery(string computerName)
+        {
+            var deviceConfig = new HomeAssistantDevice
+            {
+                Name = Environment.MachineName,
+                Identifiers = new List<string> {Environment.MachineName},
+                SwVersion = Environment.OSVersion.ToString()
+            };
+            var haLockConfig = new HomeAssistantLockConfig
+            {
+                DeviceClass = "lock", Name = computerName + "_unlocked",
+                StateTopic = WsLockedTopic,
+                UniqueId = computerName + "_unlocked",
+                Device = deviceConfig
+            };
+            var lockConfigPayload = JsonConvert.SerializeObject(haLockConfig);
+            if (lockConfigPayload == null)
+            {
+                throw new Exception("Unable to build auto discovery config for _unlocked");
+            }
+
+            _mqttService.Publish(_mqttClient, lockConfigPayload, WsLockConfigTopic);
+
+
+            var haUserPresenceConfig = new HomeAssistantLockConfig
+            {
+                DeviceClass = "presence", Name = computerName + "_presence",
+                StateTopic = UserPresenceTopic,
+                UniqueId = computerName + "_presence",
+                Device = deviceConfig
+            };
+            var presenceConfigPayload = JsonConvert.SerializeObject(haUserPresenceConfig);
+            if (presenceConfigPayload == null)
+            {
+                throw new Exception("Unable to build auto discovery config for _presence");
+            }
+
+            _mqttService.Publish(_mqttClient, presenceConfigPayload, UserPresenceConfigTopic);
         }
     }
 }
