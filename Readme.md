@@ -10,6 +10,7 @@ This project runs as a Windows background service. Currently, the installation i
 2. Edit the JSON file
     - BridgeUrl: location of the MQTT server
     - BridgePort: MQTT server port
+    - BridgeTls: If the MQTT connection should use TLS (this works currently only if the certificate is valid and trusted (real))
     - UserName: username of the MQTT server (optional)
     - ClientId: ID you would like to use for the Windows computer
     - Password: password for the MQTT server (optional)
@@ -18,6 +19,7 @@ This project runs as a Windows background service. Currently, the installation i
 {
   "BridgeUrl": "hassio.local",
   "BridgePort": 1883,
+  "BridgeTls": false,
   "BridgeUser": {
     "UserName": "mqtt-user",
     "ClientId": "not-hassio",
@@ -44,14 +46,11 @@ This project runs as a Windows background service. Currently, the installation i
 
 ## Home Assistant Configuration
 
-Open config file and enter the following
+In order to annouce the sensors in Home Assistant the [MQTT Auto Discovery](https://www.home-assistant.io/docs/mqtt/discovery/) is used.
+Therefore no configuration on the Home Assistant side is required.
 
-```yaml
-# Example configuration.yaml entry
-sensor:
-  - platform: mqtt
-    state_topic: "{computer-name}/idlestatus"
-```
+Sensor values are only reported to MQTT when they change, so it could be that you don't see them in Home Assistant right after setting ths up on a new machine.
+
 
 ### TODO
 
