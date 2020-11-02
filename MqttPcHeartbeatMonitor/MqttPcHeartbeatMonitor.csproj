@@ -9,12 +9,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="3.1.8" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="3.1.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="3.1.8" />
-    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.10.9" />
-    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="5.0.0-rc.2.20475.5"/>
+    <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="3.1.9" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="4.7.0" />
     <PackageReference Include="MQTTnet" Version="3.0.12" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="System.Management" Version="4.7.0"/>
+    <PackageReference Include="System.Management" Version="4.7.0" />
   </ItemGroup>
 
   <ItemGroup>
